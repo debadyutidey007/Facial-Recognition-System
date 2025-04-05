@@ -5305,14 +5305,16 @@ def history():
         <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"></script>
         <style>
-            body {
+            body 
+            {
                 font-family: 'Roboto', sans-serif;
                 background-color: #303030;
                 color: #e0e0e0;
                 margin: 0;
                 padding: 0;
             }
-            .container {
+            .container 
+            {
                 max-width: 900px;
                 margin: 30px auto;
                 background-color: #424242;
@@ -5321,30 +5323,35 @@ def history():
                 padding: 0;
                 overflow: hidden;
             }
-            .app-header {
+            .app-header 
+            {
                 background-color: #1e88e5;
                 color: white;
                 padding: 20px;
                 text-align: center;
                 position: relative;
             }
-            h1 {
+            h1 
+            {
                 font-weight: 500;
                 margin: 0;
                 font-size: 24px;
             }
-            .nav-android {
+            .nav-android 
+            {
                 background-color: #1976d2;
                 display: flex;
                 padding: 0;
                 margin: 0;
                 list-style: none;
             }
-            .nav-android .nav-item {
+            .nav-android .nav-item 
+            {
                 flex: 1;
                 text-align: center;
             }
-            .nav-android .nav-link {
+            .nav-android .nav-link 
+            {
                 color: rgba(255, 255, 255, 0.8);
                 padding: 15px 0;
                 display: block;
@@ -5356,21 +5363,25 @@ def history():
                 letter-spacing: 0.5px;
             }
             .nav-android .nav-link.active, 
-            .nav-android .nav-link:hover {
+            .nav-android .nav-link:hover 
+            {
                 color: white;
                 background-color: rgba(255, 255, 255, 0.1);
             }
-            .content-wrapper {
+            .content-wrapper 
+            {
                 padding: 25px;
             }
-            .action-bar {
+            .action-bar 
+            {
                 background-color: #424242;
                 padding: 10px 25px;
                 display: flex;
                 justify-content: flex-end;
                 border-bottom: 1px solid #555;
             }
-            .btn-delete {
+            .btn-delete 
+            {
                 background-color: #f44336;
                 color: white;
                 border: none;
@@ -5384,14 +5395,17 @@ def history():
                 display: flex;
                 align-items: center;
             }
-            .btn-delete:hover {
+            .btn-delete:hover 
+            {
                 background-color: #d32f2f;
                 color: white;
             }
-            .btn-delete-icon {
+            .btn-delete-icon 
+            {
                 margin-right: 8px;
             }
-            .history-card {
+            .history-card 
+            {
                 background-color: #484848;
                 border-radius: 8px;
                 overflow: hidden;
@@ -5401,53 +5415,63 @@ def history():
                 flex-direction: row;
                 box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
             }
-            .history-image {
+            .history-image 
+            {
                 width: 120px;
                 height: 120px;
                 overflow: hidden;
             }
-            .history-image img {
+            .history-image img 
+            {
                 width: 100%;
                 height: 100%;
                 object-fit: cover;
             }
-            .history-details {
+            .history-details 
+            {
                 flex: 1;
                 padding: 15px;
                 display: flex;
                 flex-wrap: wrap;
             }
-            .history-date {
+            .history-date 
+            {
                 width: 100%;
                 font-size: 12px;
                 color: #bdbdbd;
                 margin-bottom: 8px;
             }
-            .history-detail {
+            .history-detail 
+            {
                 flex: 1;
                 min-width: calc(50% - 10px);
                 margin: 5px;
             }
-            .detail-label {
+            .detail-label 
+            {
                 font-size: 12px;
                 color: #bdbdbd;
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
             }
-            .detail-value {
+            .detail-value 
+            {
                 font-size: 16px;
                 font-weight: 500;
             }
-            .empty-state {
+            .empty-state 
+            {
                 text-align: center;
                 padding: 40px 20px;
                 color: #9e9e9e;
             }
-            .empty-state p {
+            .empty-state p 
+            {
                 margin-top: 15px;
                 font-size: 16px;
             }
-            .btn-primary {
+            .btn-primary 
+            {
                 background-color: #1e88e5;
                 border: none;
                 padding: 12px 20px;
@@ -5458,42 +5482,51 @@ def history():
                 transition: background-color 0.3s;
                 box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
             }
-            .btn-primary:hover, .btn-primary:focus {
+            .btn-primary:hover, .btn-primary:focus 
+            {
                 background-color: #1976d2;
                 box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
             }
-            .empty-state-icon {
+            .empty-state-icon 
+            {
                 font-size: 60px;
                 color: #616161;
                 margin-bottom: 20px;
             }
-            .flash-message {
+            .flash-message 
+            {
                 padding: 15px;
                 margin-bottom: 20px;
                 border-radius: 4px;
                 font-weight: 400;
             }
-            .flash-error {
+            .flash-error 
+            {
                 background-color: #ef5350;
                 color: white;
             }
-            .flash-success {
+            .flash-success 
+            {
                 background-color: #66bb6a;
                 color: white;
             }
-            .modal-content {
+            .modal-content 
+            {
                 background-color: #424242;
                 color: #e0e0e0;
             }
-            .modal-header {
+            .modal-header 
+            {
                 background-color: #f44336;
                 color: white;
                 border-bottom: none;
             }
-            .modal-footer {
+            .modal-footer 
+            {
                 border-top: 1px solid #555;
             }
-            .btn-secondary {
+            .btn-secondary 
+            {
                 background-color: #757575;
                 color: white;
                 border: none;
@@ -5501,10 +5534,12 @@ def history():
                 font-weight: 500;
                 letter-spacing: 1px;
             }
-            .btn-secondary:hover {
+            .btn-secondary:hover 
+            {
                 background-color: #616161;
             }
-            .btn-confirm {
+            .btn-confirm 
+            {
                 background-color: #f44336;
                 color: white;
                 border: none;
@@ -5514,7 +5549,8 @@ def history():
                 font-weight: 500;
                 letter-spacing: 1px;
             }
-            .btn-confirm:hover {
+            .btn-confirm:hover 
+            {
                 background-color: #d32f2f;
             }
         </style>
