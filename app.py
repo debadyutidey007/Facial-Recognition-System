@@ -288,13 +288,22 @@ class DatabaseManager:
             True if deleted successfully, False otherwise
         """
         try:
-            conn = self._get_connection()
-            with conn.cursor() as cursor:
-                query = "DELETE FROM analysis_results WHERE user_id = %s"
-                cursor.execute(query, (user_id,))
-            conn.commit()
-            conn.close()
+            # Ensure we have a connection
+            if not self.connection:
+                self.connection = self._get_connection()
+        
+            cursor = self.connection.cursor()
+        
+            # Delete all analysis results for the user
+            query = "DELETE FROM analysis_results WHERE user_id = %s"
+            cursor.execute(query, (user_id,))
+        
+            self.connection.commit()
+            cursor.close()
+        
+            logger.info(f"Cleared history for user ID {user_id}")
             return True
+        
         except Exception as e:
             logger.error(f"Error clearing user history: {str(e)}")
             return False
@@ -5041,7 +5050,6 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    """User login page"""
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
@@ -5050,20 +5058,31 @@ def login():
             flash('Username and password are required', 'error')
             return redirect(url_for('login'))
         
-        # Get user details
+        # Get user from database
         user = db_manager.get_user(username)
         
-        if user and check_password_hash(user['password'], password):
-            # Login successful
+        if not user:
+            flash('Invalid username or password', 'error')
+            return redirect(url_for('login'))
+        
+        # Check password
+        if check_password_hash(user['password_hash'], password):
+            # Set session variables
+            session['user_id'] = user['id']
+            session['username'] = user['username']
+            # Also set user dict for compatibility with existing code
             session['user'] = {
                 'id': user['id'],
                 'username': user['username']
             }
+            
             flash('Login successful!', 'success')
             return redirect(url_for('index'))
         else:
             flash('Invalid username or password', 'error')
             return redirect(url_for('login'))
+    
+    return render_template('login.html')
     
     # Only changing the render_template_string part:
     return render_template_string('''
@@ -5236,25 +5255,28 @@ def login():
 
 @app.route('/logout')
 def logout():
-    """Log out the current user"""
+    # Clear session
+    session.pop('user_id', None)
+    session.pop('username', None)
     session.pop('user', None)
+    
     flash('You have been logged out', 'success')
     return redirect(url_for('index'))
 
 # Add your new route here
 @app.route('/delete_history', methods=['POST'])
 def delete_history():
-    """Delete user's analysis history"""
     # Check if user is logged in
-    if 'user' not in session or 'id' not in session['user']:
-        flash('Please login to delete your history', 'error')
+    if 'user_id' not in session:
+        flash('Please log in to delete history', 'error')
         return redirect(url_for('login'))
     
-    # Delete user history from database
-    success = db_manager.clear_user_history(session['user']['id'])
+    # Delete user's analysis history
+    user_id = session['user_id']
+    success = db_manager.clear_user_history(user_id)
     
     if success:
-        flash('Your analysis history has been deleted', 'success')
+        flash('Your analysis history has been deleted successfully', 'success')
     else:
         flash('Error deleting history. Please try again.', 'error')
     
@@ -5264,14 +5286,14 @@ def delete_history():
 def history():
     """Display user's analysis history"""
     # Check if user is logged in
-    if 'user' not in session or 'id' not in session['user']:
+    if 'user_id' not in session:
         flash('Please login to view your history', 'error')
         return redirect(url_for('login'))
     
     # Get user history from database
-    user_history = db_manager.get_user_history(session['user']['id'])
+    user_history = db_manager.get_user_history(session['user_id'])
     
-    # Render history page
+    # Render history page with Android-style UI
     return render_template_string('''
     <!DOCTYPE html>
     <html lang="en">
@@ -5281,17 +5303,16 @@ def history():
         <title>Analysis History</title>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet">
         <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"></script>
         <style>
-            body 
-            {
+            body {
                 font-family: 'Roboto', sans-serif;
                 background-color: #303030;
                 color: #e0e0e0;
                 margin: 0;
                 padding: 0;
             }
-            .container 
-            {
+            .container {
                 max-width: 900px;
                 margin: 30px auto;
                 background-color: #424242;
@@ -5300,35 +5321,30 @@ def history():
                 padding: 0;
                 overflow: hidden;
             }
-            .app-header 
-            {
+            .app-header {
                 background-color: #1e88e5;
                 color: white;
                 padding: 20px;
                 text-align: center;
                 position: relative;
             }
-            h1 
-            {
+            h1 {
                 font-weight: 500;
                 margin: 0;
                 font-size: 24px;
             }
-            .nav-android 
-            {
+            .nav-android {
                 background-color: #1976d2;
                 display: flex;
                 padding: 0;
                 margin: 0;
                 list-style: none;
             }
-            .nav-android .nav-item 
-            {
+            .nav-android .nav-item {
                 flex: 1;
                 text-align: center;
             }
-            .nav-android .nav-link 
-            {
+            .nav-android .nav-link {
                 color: rgba(255, 255, 255, 0.8);
                 padding: 15px 0;
                 display: block;
@@ -5340,25 +5356,21 @@ def history():
                 letter-spacing: 0.5px;
             }
             .nav-android .nav-link.active, 
-            .nav-android .nav-link:hover 
-            {
+            .nav-android .nav-link:hover {
                 color: white;
                 background-color: rgba(255, 255, 255, 0.1);
             }
-            .content-wrapper 
-            {
+            .content-wrapper {
                 padding: 25px;
             }
-            .action-bar 
-            {
+            .action-bar {
                 background-color: #424242;
                 padding: 10px 25px;
                 display: flex;
                 justify-content: flex-end;
                 border-bottom: 1px solid #555;
             }
-            .btn-delete 
-            {
+            .btn-delete {
                 background-color: #f44336;
                 color: white;
                 border: none;
@@ -5372,17 +5384,14 @@ def history():
                 display: flex;
                 align-items: center;
             }
-            .btn-delete:hover 
-            {
+            .btn-delete:hover {
                 background-color: #d32f2f;
                 color: white;
             }
-            .btn-delete-icon 
-            {
+            .btn-delete-icon {
                 margin-right: 8px;
             }
-            .history-card 
-            {
+            .history-card {
                 background-color: #484848;
                 border-radius: 8px;
                 overflow: hidden;
@@ -5392,63 +5401,53 @@ def history():
                 flex-direction: row;
                 box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
             }
-            .history-image 
-            {
+            .history-image {
                 width: 120px;
                 height: 120px;
                 overflow: hidden;
             }
-            .history-image img 
-            {
+            .history-image img {
                 width: 100%;
                 height: 100%;
                 object-fit: cover;
             }
-            .history-details 
-            {
+            .history-details {
                 flex: 1;
                 padding: 15px;
                 display: flex;
                 flex-wrap: wrap;
             }
-            .history-date 
-            {
+            .history-date {
                 width: 100%;
                 font-size: 12px;
                 color: #bdbdbd;
                 margin-bottom: 8px;
             }
-            .history-detail 
-            {
+            .history-detail {
                 flex: 1;
                 min-width: calc(50% - 10px);
                 margin: 5px;
             }
-            .detail-label 
-            {
+            .detail-label {
                 font-size: 12px;
                 color: #bdbdbd;
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
             }
-            .detail-value 
-            {
+            .detail-value {
                 font-size: 16px;
                 font-weight: 500;
             }
-            .empty-state 
-            {
+            .empty-state {
                 text-align: center;
                 padding: 40px 20px;
                 color: #9e9e9e;
             }
-            .empty-state p 
-            {
+            .empty-state p {
                 margin-top: 15px;
                 font-size: 16px;
             }
-            .btn-primary 
-            {
+            .btn-primary {
                 background-color: #1e88e5;
                 border: none;
                 padding: 12px 20px;
@@ -5459,90 +5458,53 @@ def history():
                 transition: background-color 0.3s;
                 box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
             }
-            .btn-primary:hover, .btn-primary:focus 
-            {
+            .btn-primary:hover, .btn-primary:focus {
                 background-color: #1976d2;
                 box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
             }
-            .empty-state-icon 
-            {
+            .empty-state-icon {
                 font-size: 60px;
                 color: #616161;
                 margin-bottom: 20px;
             }
-            .flash-message 
-            {
+            .flash-message {
                 padding: 15px;
                 margin-bottom: 20px;
                 border-radius: 4px;
                 font-weight: 400;
             }
-            .flash-error 
-            {
+            .flash-error {
                 background-color: #ef5350;
                 color: white;
             }
-            .flash-success 
-            {
+            .flash-success {
                 background-color: #66bb6a;
                 color: white;
             }
-            /* Modal Dialog for confirmation */
-            .modal-backdrop 
-            {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background-color: rgba(0, 0, 0, 0.7);
-                display: none;
-                justify-content: center;
-                align-items: center;
-                z-index: 1000;
-            }
-            .modal-dialog 
-            {
+            .modal-content {
                 background-color: #424242;
-                border-radius: 8px;
-                width: 90%;
-                max-width: 400px;
-                overflow: hidden;
-                box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
-            }
-            .modal-header 
-            {
-                background-color: #f44336;
-                color: white;
-                padding: 15px 20px;
-                font-weight: 500;
-            }
-            .modal-body 
-            {
-                padding: 20px;
                 color: #e0e0e0;
             }
-            .modal-footer 
-            {
-                padding: 15px 20px;
-                display: flex;
-                justify-content: flex-end;
-                gap: 10px;
+            .modal-header {
+                background-color: #f44336;
+                color: white;
+                border-bottom: none;
+            }
+            .modal-footer {
                 border-top: 1px solid #555;
             }
-            .btn-cancel 
-            {
+            .btn-secondary {
                 background-color: #757575;
                 color: white;
                 border: none;
-                padding: 8px 16px;
-                border-radius: 4px;
                 text-transform: uppercase;
                 font-weight: 500;
                 letter-spacing: 1px;
             }
-            .btn-confirm 
-            {
+            .btn-secondary:hover {
+                background-color: #616161;
+            }
+            .btn-confirm {
                 background-color: #f44336;
                 color: white;
                 border: none;
@@ -5552,12 +5514,7 @@ def history():
                 font-weight: 500;
                 letter-spacing: 1px;
             }
-            .btn-cancel:hover 
-            {
-                background-color: #616161;
-            }
-            .btn-confirm:hover 
-            {
+            .btn-confirm:hover {
                 background-color: #d32f2f;
             }
         </style>
@@ -5570,19 +5527,19 @@ def history():
             
             <ul class="nav-android">
                 <li class="nav-item">
-                    <a class="nav-link" href="/">HOME</a>
+                    <a class="nav-link" href="{{ url_for('index') }}">HOME</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link active" href="/history">HISTORY</a>
+                    <a class="nav-link active" href="{{ url_for('history') }}">HISTORY</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="/logout">LOGOUT</a>
+                    <a class="nav-link" href="{{ url_for('logout') }}">LOGOUT</a>
                 </li>
             </ul>
             
-            {% if user_history and user_history|length > 0 %}
+            {% if history and history|length > 0 %}
             <div class="action-bar">
-                <button class="btn-delete" onclick="showDeleteConfirmation()">
+                <button class="btn-delete" data-bs-toggle="modal" data-bs-target="#deleteHistoryModal">
                     <span class="btn-delete-icon">🗑️</span> DELETE HISTORY
                 </button>
             </div>
@@ -5599,33 +5556,35 @@ def history():
                     {% endif %}
                 {% endwith %}
                 
-                {% if user_history and user_history|length > 0 %}
-                    {% for item in user_history %}
+                {% if history and history|length > 0 %}
+                    {% for item in history %}
                         <div class="history-card">
                             <div class="history-image">
-                                <img src="{{ url_for('static', filename='uploads/' + item.image_filename) }}" alt="Analysis">
+                                <img src="{{ url_for('static', filename='uploads/' + item['image_filename']) }}" alt="Analysis">
                             </div>
                             <div class="history-details">
-                                <div class="history-date">{{ item.created_at.strftime('%B %d, %Y at %I:%M %p') }}</div>
+                                <div class="history-date">
+                                    {{ item['created_at'].strftime('%B %d, %Y at %I:%M %p') }}
+                                </div>
                                 
                                 <div class="history-detail">
                                     <div class="detail-label">Emotion</div>
-                                    <div class="detail-value">{{ item.emotion|capitalize }}</div>
+                                    <div class="detail-value">{{ item['emotion']|capitalize }}</div>
                                 </div>
                                 
                                 <div class="history-detail">
                                     <div class="detail-label">Gender</div>
-                                    <div class="detail-value">{{ item.gender }}</div>
+                                    <div class="detail-value">{{ item['gender'] }}</div>
                                 </div>
                                 
                                 <div class="history-detail">
                                     <div class="detail-label">Age</div>
-                                    <div class="detail-value">{{ item.age }} years</div>
+                                    <div class="detail-value">{{ item['age'] }} years</div>
                                 </div>
                                 
                                 <div class="history-detail">
                                     <div class="detail-label">Ethnicity</div>
-                                    <div class="detail-value">{{ item.ethnicity }}</div>
+                                    <div class="detail-value">{{ item['ethnicity'] }}</div>
                                 </div>
                             </div>
                         </div>
@@ -5634,54 +5593,37 @@ def history():
                     <div class="empty-state">
                         <div class="empty-state-icon">📷</div>
                         <p>You haven't analyzed any faces yet.</p>
-                        <a href="/" class="btn btn-primary">ANALYZE A FACE</a>
+                        <a href="{{ url_for('index') }}" class="btn btn-primary">ANALYZE A FACE</a>
                     </div>
                 {% endif %}
             </div>
         </div>
         
         <!-- Delete Confirmation Modal -->
-        <div id="deleteModal" class="modal-backdrop">
+        <div class="modal fade" id="deleteHistoryModal" tabindex="-1" aria-labelledby="deleteHistoryModalLabel" aria-hidden="true">
             <div class="modal-dialog">
-                <div class="modal-header">
-                    Confirm Deletion
-                </div>
-                <div class="modal-body">
-                    <p>Are you sure you want to delete your entire analysis history? This action cannot be undone.</p>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn-cancel" onclick="hideDeleteConfirmation()">CANCEL</button>
-                    <form action="/delete_history" method="post">
-                        <button type="submit" class="btn-confirm">DELETE</button>
-                    </form>
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="deleteHistoryModalLabel">Confirm Deletion</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Are you sure you want to delete your entire analysis history? This action cannot be undone.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <form action="{{ url_for('delete_history') }}" method="post">
+                            <button type="submit" class="btn-confirm">Delete All</button>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>
         
-        <script>
-            // Functions to show/hide delete confirmation modal
-            function showDeleteConfirmation() 
-            {
-                document.getElementById('deleteModal').style.display = 'flex';
-            }
-            
-            function hideDeleteConfirmation() 
-            {
-                document.getElementById('deleteModal').style.display = 'none';
-            }
-            
-            // Close modal when clicking outside
-            window.onclick = function(event) 
-            {
-                if (event.target == document.getElementById('deleteModal')) 
-                {
-                    hideDeleteConfirmation();
-                }
-            }
-        </script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"></script>
     </body>
     </html>
-    ''', user_history=user_history)
+    ''', history=user_history)
 
 
 @app.context_processor
